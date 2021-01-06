@@ -1,8 +1,14 @@
+# This script takes list of Twitter handles to tracks and updates corresponding info in Firestore DB
+
+import datetime
 import logging
 import os
 
 import requests
 from google.cloud import firestore
+from google.cloud import storage
+
+from utility import BUCKET_NAME, SOURCE_BLOB_NAME
 
 logging.basicConfig(level=logging.INFO)
 
@@ -11,64 +17,59 @@ def auth():
     return os.environ.get("BEARER_TOKEN")
 
 
-def get_handles():
-    """
-    Get list of ids of Twitter handles
-    Returns:
-        List of ids for Twitter handles
-    """
-    db = firestore.Client()
-    h_ref = db.collection(u'tb-handles')
-    logging.info("Getting lis of handles...")
-    docs = h_ref.stream()
-    list_of_handles = [doc.to_dict()['id'] for doc in docs]
-    return list_of_handles
-
-
-def create_url(user_id):
-    return f"https://api.twitter.com/2/users/{user_id}/tweets"
-
-
-def get_params():
-    """
-    Returns:
-        List of fields required of tweet objects
-
-    """
-    return {"tweet.fields": "id,text,author_id,conversation_id,"
-                            "created_at,geo,in_reply_to_user_id,lang,"
-                            "public_metrics,source"}
-
-
-def create_headers(bearer_token, next_token=None):
-    """
-    Create headers
-    Args:
-        bearer_token: Bearer token
-        next_token: Token for pagnation
-
-    Returns:
-        Header for api call
-    """
-    if next_token is None:
-        headers = {"Authorization": f"Bearer {bearer_token}"}
-    else:
-        headers = {"Authorization": f"Bearer {bearer_token}", "next_token": next_token}
+def create_headers(bearer_token):
+    headers = {"Authorization": f"Bearer {bearer_token}"}
     return headers
 
 
-def connect_to_endpoint(url, headers, params):
+def get_list_of_handles():
     """
-    This function fetches tweets from specific twitter handle timelines
+    Fetches list of handles to track
+    Returns:
+        List of Twitter Handles
+    """
+    logging.info("Creating cloud storage client...")
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(BUCKET_NAME)
+    blob = bucket.blob(SOURCE_BLOB_NAME)
+    file_path = '/tmp/twitter_handles.txt'  # For Google cloud functions only
+    # file_path = 'tmp/twitter_handles.txt'
+    blob.download_to_filename(file_path)
+
+    with open(file_path, "r") as read_file:
+        users = read_file.read().splitlines()
+        logging.info(f"Total number of Twitter handle to track: {len(users)}")
+    return users
+
+
+def create_url(users):
+    """
+    Create GET endpoint to get handle information
     Args:
-        url: API endpoint to fetch tweets
-        headers: Headers
-        params: Additional parameters
+        users: List of twitter handles
 
     Returns:
-        List of tweets as json payload
+        URL for GET call to get handle information
     """
-    response = requests.request("GET", url, headers=headers, params=params)
+    str1 = ','.join(users)
+    usernames = "usernames=" + str1
+    user_fields = "user.fields=description,created_at,location,pinned_tweet_id,profile_image_url,protected," \
+                  "public_metrics,url,verified"
+    url = f"https://api.twitter.com/2/users/by?{usernames}&{user_fields}"
+    return url
+
+
+def connect_to_endpoint(url, headers):
+    """
+    Fetches latest information of a Twitter handle
+    Args:
+        url: URL to make a GET call
+        headers: Headers need for authentication
+
+    Returns:
+        List of tweets in json format
+    """
+    response = requests.request("GET", url, headers=headers)
     if response.status_code != 200:
         raise Exception(
             "Request returned an error: {} {}".format(
@@ -78,48 +79,30 @@ def connect_to_endpoint(url, headers, params):
     return response.json()
 
 
-def ingest_tweets_to_firestore(tweets):
+def update_in_firestore(data):
     """
-    Ingest tweets to firestore db
+    Update latest handle info in Google Firestore
     Args:
-        tweets: List of tweets in dict format
+        data: Dictionary containing list of tweets
 
     Returns:
         None
     """
+    logging.info("Creating Firestore client...")
     db = firestore.Client()
-    batch = db.batch()
 
-    for tweet in tweets:
-        twt_ref = db.collection(u'tb-tweets').document(tweet['id'])
-        batch.set(twt_ref, tweet)
+    logging.info("Updating user profiles...")
+    for user_info in data['data']:
+        user_info['last_updated'] = datetime.datetime.now()
+        db.collection('tb-handles').document(user_info['username']).set(user_info)
+    logging.info("Update completed")
 
-    batch.commit()
 
-
-def ingest_tweets_batch(request):
+def main(request):
     bearer_token = auth()
-    params = get_params()
-    handles = get_handles()
-    logging.info("Started Ingesting tweets...")
-    handles = ['223106342', '2244994945']
-    for ticker in handles:
-        logging.info(f"Ingesting tweets for {ticker}")
-        tw_cnt = 10
-        next_token = None
-        url = create_url(ticker)
-        while True:
-            headers = create_headers(bearer_token, next_token)
-            json_response = connect_to_endpoint(url, headers, params)
-            next_token = json_response["meta"].get("next_token")
-            if next_token is None:
-                break
-            ingest_tweets_to_firestore(json_response["data"])
-            logging.info(f"Ingested {tw_cnt} tweets for {ticker}")
-            tw_cnt += 10
-            import time
-            time.sleep(10)
-
-
-# if __name__ == "__main__":
-#     ingest_tweets_batch()
+    users = get_list_of_handles()
+    url = create_url(users=users)
+    headers = create_headers(bearer_token)
+    json_response = connect_to_endpoint(url, headers)
+    update_in_firestore(json_response)
+    return "Success"

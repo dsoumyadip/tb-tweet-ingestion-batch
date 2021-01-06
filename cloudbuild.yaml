@@ -1,9 +1,3 @@
 steps:
-- name: 'gcr.io/cloud-builders/gcloud'
-  args:
-  - functions
-  - deploy
-  - ingest_tweets_batch
-  - --source=.
-  - --trigger-http
-  - --runtime=python37
+- name: 'gcr.io/cloud-builders/docker'
+  args: [ 'build', '-t', 'gcr.io/delta-cosmos-292309/ingest_tweets_batch', '-f', './Dockerfile', '.' ]
