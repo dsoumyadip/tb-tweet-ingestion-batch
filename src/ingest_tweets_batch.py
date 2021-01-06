@@ -69,6 +69,7 @@ def connect_to_endpoint(url, headers, params):
         List of tweets as json payload
     """
     response = requests.request("GET", url, headers=headers, params=params)
+    logging.info("Connected to ingestion endpoint")
     if response.status_code != 200:
         raise Exception(
             "Request returned an error: {} {}".format(
@@ -93,7 +94,6 @@ def ingest_tweets_to_firestore(tweets):
     for tweet in tweets:
         twt_ref = db.collection(u'tb-tweets').document(tweet['id'])
         batch.set(twt_ref, tweet)
-
     batch.commit()
 
 
@@ -102,7 +102,7 @@ def ingest_tweets_batch():
     params = get_params()
     handles = get_handles()
     logging.info("Started Ingesting tweets...")
-    handles = ['223106342', '2244994945']
+    # handles = ['223106342', '2244994945']
     for ticker in handles:
         logging.info(f"Ingesting tweets for {ticker}")
         tw_cnt = 10
@@ -117,8 +117,6 @@ def ingest_tweets_batch():
             ingest_tweets_to_firestore(json_response["data"])
             logging.info(f"Ingested {tw_cnt} tweets for {ticker}")
             tw_cnt += 10
-            import time
-            time.sleep(10)
 
 
 if __name__ == "__main__":

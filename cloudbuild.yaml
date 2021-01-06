@@ -1,3 +1,3 @@
 steps:
 - name: 'gcr.io/cloud-builders/docker'
-  args: [ 'build', '-t', 'gcr.io/delta-cosmos-292309/ingest_tweets_batch', '-f', './Dockerfile', '.' ]
+  args: [ 'build', '-t', 'gcr.io/delta-cosmos-292309/tb-ingest_tweets_batch', '-f', './Dockerfile', '.' ]
