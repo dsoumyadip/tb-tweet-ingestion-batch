@@ -6,3 +6,4 @@ steps:
   - ingest_tweets_batch
   - --source=.
   - --trigger-http
+  - --runtime python37
