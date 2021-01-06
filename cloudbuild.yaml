@@ -1,13 +1,8 @@
 steps:
-# Build the container image
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'gcr.io/delta-cosmos-292309/tb-ingest-tweets-batch', '.']
-# Push the container image to Container Registry
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'gcr.io/delta-cosmos-292309/tb-ingest-tweets-batch']
-## Deploy container image to Cloud Run
-#- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-#  entrypoint: gcloud
-#  args: ['run', 'deploy', 'tb-ingest-tweets-batch', '--image', 'gcr.io/delta-cosmos-292309/tb-ingest-tweets-batch', '--region', 'us-central1', '--platform', 'managed']
-#images:
-#- gcr.io/delta-cosmos-292309/tb-ingest-tweets-batch
+- name: 'gcr.io/cloud-builders/gcloud'
+  args:
+  - functions
+  - deploy
+  - ingest_tweets_batch
+  - --source=.
+  - --trigger-http

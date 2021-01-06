@@ -97,7 +97,7 @@ def ingest_tweets_to_firestore(tweets):
     batch.commit()
 
 
-def main():
+def ingest_tweets_batch(request):
     bearer_token = auth()
     params = get_params()
     handles = get_handles()
@@ -121,5 +121,5 @@ def main():
             time.sleep(10)
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     ingest_tweets_batch()
