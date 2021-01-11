@@ -21,7 +21,9 @@ def get_handles():
     h_ref = db.collection(u'tb-handles')
     logging.info("Getting lis of handles...")
     docs = h_ref.stream()
-    list_of_handles = [doc.to_dict()['id'] for doc in docs]
+    list_of_handles = dict()
+    for doc in docs:
+        list_of_handles[doc.to_dict()['username']] = doc.to_dict()['id']
     return list_of_handles
 
 
@@ -96,15 +98,21 @@ def ingest_tweets_to_firestore(tweets):
         batch.set(twt_ref, tweet)
     batch.commit()
 
+def update_username_as_key(tweet_dict, username):
+    tweet_dict['username'] = username
+    return tweet_dict
+
 
 def ingest_tweets_batch():
     bearer_token = auth()
     params = get_params()
-    handles = get_handles()
+    handles_dict = get_handles()
+    rev_handles_dict = {v: k for k, v in handles_dict.items()}
+    handles = list(rev_handles_dict.keys())
     logging.info("Started Ingesting tweets...")
     # handles = ['223106342', '2244994945']
     for ticker in handles:
-        logging.info(f"Ingesting tweets for {ticker}")
+        logging.info(f"Ingesting tweets for @{rev_handles_dict[ticker]}")
         tw_cnt = 10
         next_token = None
         url = create_url(ticker)
@@ -114,8 +122,9 @@ def ingest_tweets_batch():
             next_token = json_response["meta"].get("next_token")
             if next_token is None:
                 break
-            ingest_tweets_to_firestore(json_response["data"])
-            logging.info(f"Ingested {tw_cnt} tweets for {ticker}")
+            json_response_with_username = map(lambda x: update_username_as_key(x, rev_handles_dict[ticker]), json_response["data"])
+            ingest_tweets_to_firestore(json_response_with_username)
+            logging.info(f"Ingested {tw_cnt} tweets for @{rev_handles_dict[ticker]}")
             tw_cnt += 10
 
 
