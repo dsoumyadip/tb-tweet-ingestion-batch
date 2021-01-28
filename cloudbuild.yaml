@@ -1,4 +1,4 @@
 steps:
-- name: 'gcr.io/cloud-builders/docker'
-  args: [ 'build', '-t', 'gcr.io/sharp-haven-301406/tb-ingest-tweets-batch', '-f', './Dockerfile', '.' ]
-images: ['gcr.io/sharp-haven-301406/tb-ingest-tweets-batch']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [ 'build', '-t', 'gcr.io/sharp-haven-301406/tb-ingest-tweets-batch', '-f', './Dockerfile', '.' ]
+images: [ 'gcr.io/sharp-haven-301406/tb-ingest-tweets-batch' ]
