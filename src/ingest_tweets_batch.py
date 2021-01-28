@@ -105,8 +105,8 @@ def ingest_tweets_batch():
     rev_handles_dict = {v: k for k, v in handles_dict.items()}
 
     # List of handles to fetch historical tweets
-    handles = list(rev_handles_dict.keys())  # For PROD
-    # handles = ['223106342', '2244994945']  # For testing only
+    # handles = list(rev_handles_dict.keys())  # For PROD
+    handles = ['223106342', '2244994945']  # For testing only
 
     logging.info("Started Ingesting tweets...")
     for ticker in handles:
