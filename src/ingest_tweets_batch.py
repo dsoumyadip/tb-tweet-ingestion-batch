@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from datetime import datetime
 
 import requests
 from google.cloud import firestore
@@ -126,6 +127,8 @@ def update_username_as_key(tweet_dict, username):
 
     """
     tweet_dict['username'] = username
+    tweet_dict['last_updated'] = datetime.now()
+    tweet_dict['update_type'] = 'batch'
     return tweet_dict
 
 
