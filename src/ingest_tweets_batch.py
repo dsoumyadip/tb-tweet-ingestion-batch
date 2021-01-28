@@ -18,7 +18,7 @@ def get_handles():
         List of user ids for Twitter handles
     """
     db = firestore.Client()
-    h_ref = db.collection((u'tb-handles',))
+    h_ref = db.collection(u'tb-handles')
     logging.info("Getting list of handles...")
     docs = h_ref.stream()
     list_of_handles = dict()
@@ -69,17 +69,13 @@ def connect_to_endpoint(url, headers, params):
     """
     response = requests.request("GET", url, headers=headers, params=params)
     logging.info("Connected to ingestion endpoint")
-    try:
-        if response.status_code != 200:
-            raise Exception(
-                "Request returned an error: {} {}".format(
-                    response.status_code, response.text
-                )
+    if response.status_code != 200:
+        raise Exception(
+            "Request returned an error: {} {}".format(
+                response.status_code, response.text
             )
-        return response.json()
-    except Exception as e:
-        logging.info(e)
-        time.sleep(10)
+        )
+    return response.json()
 
 
 def ingest_tweets_to_firestore(tweets):
@@ -91,7 +87,7 @@ def ingest_tweets_to_firestore(tweets):
     batch = db.batch()
 
     for tweet in tweets:
-        twt_ref = db.collection((u'tb-tweets',)).document(tweet['id'])
+        twt_ref = db.collection(u'tb-tweets').document(tweet['id'])
         batch.set(twt_ref, tweet)
     batch.commit()
 
@@ -111,7 +107,7 @@ def ingest_tweets_batch():
 
     # List of handles to fetch historical tweets
     # handles = list(rev_handles_dict.keys())  # For PROD
-    handles = ['223106342', '2244994945']  # For testing only
+    handles = ['18839785', '3171712086']  # For testing only
 
     logging.info("Started Ingesting tweets...")
     for ticker in handles:
@@ -121,15 +117,19 @@ def ingest_tweets_batch():
         url = create_url(ticker)
         while True:
             headers = create_headers(bearer_token, next_token)
-            json_response = connect_to_endpoint(url, headers, params)
-            next_token = json_response["meta"].get("next_token")
-            if next_token is None:
-                break
-            json_response_with_username = map(lambda x: update_username_as_key(x, rev_handles_dict[ticker]),
-                                              json_response["data"])
-            ingest_tweets_to_firestore(json_response_with_username)
-            logging.info(f"Ingested {tw_cnt} tweets for @{rev_handles_dict[ticker]}")
-            tw_cnt += len(json_response["data"])
+            try:
+                json_response = connect_to_endpoint(url, headers, params)
+                next_token = json_response["meta"].get("next_token")
+                if next_token is None:
+                    break
+                json_response_with_username = map(lambda x: update_username_as_key(x, rev_handles_dict[ticker]),
+                                                  json_response["data"])
+                ingest_tweets_to_firestore(json_response_with_username)
+                logging.info(f"Ingested {tw_cnt} tweets for @{rev_handles_dict[ticker]}")
+                tw_cnt += len(json_response["data"])
+            except Exception as e:
+                logging.info(e)
+                time.sleep(10)
 
 
 if __name__ == "__main__":
