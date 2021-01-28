@@ -7,6 +7,9 @@ from google.cloud import firestore
 
 logging.basicConfig(level=logging.INFO)
 
+# Fetch 100 tweets at a single API call
+TWEET_BATCH_SIZE = 100
+
 
 def auth():
     return os.environ.get("BEARER_TOKEN")
@@ -28,32 +31,51 @@ def get_handles():
 
 
 def create_url(user_id):
-    """Returns endpoint to get historical tweets of a handle
+    """
+    Returns endpoint to get historical tweets of a handle
+    Args:
+        user_id: User Id of Twitter handle
+
+    Returns:
+        Endpoint where to make request
+
     """
     return f"https://api.twitter.com/2/users/{user_id}/tweets"
 
 
-def get_params():
-    """List of required fields of tweet objects
+def get_params(next_token, batch_size=100):
     """
-    return {"tweet.fields": "id,text,author_id,conversation_id,"
-                            "created_at,geo,in_reply_to_user_id,lang,"
-                            "public_metrics,source"}
+    List of required fields of tweet objects
+    Args:
+        next_token: Token for pagination
+        batch_size: Number of tweets to retrieve at each API call
+
+    Returns:
+        Dictionary containing request parameters
+
+    """
+    if next_token is None:
+        return {"tweet.fields": "id,text,author_id,conversation_id,"
+                                "created_at,geo,in_reply_to_user_id,lang,"
+                                "public_metrics,source",
+                "max_results": batch_size}
+    else:
+        return {"tweet.fields": "id,text,author_id,conversation_id,"
+                                "created_at,geo,in_reply_to_user_id,lang,"
+                                "public_metrics,source",
+                "max_results": batch_size,
+                "pagination_token": next_token}
 
 
-def create_headers(bearer_token, next_token=None):
+def create_headers(bearer_token):
     """Create headers to make API call
     Args:
         bearer_token: Bearer token
-        next_token: Token for pagination
 
     Returns:
         Header for API call
     """
-    if next_token is None:
-        headers = {"Authorization": f"Bearer {bearer_token}"}
-    else:
-        headers = {"Authorization": f"Bearer {bearer_token}", "next_token": next_token}
+    headers = {"Authorization": f"Bearer {bearer_token}"}
     return headers
 
 
@@ -93,14 +115,24 @@ def ingest_tweets_to_firestore(tweets):
 
 
 def update_username_as_key(tweet_dict, username):
+    """
+    Set each tweet object's username as key of that document
+    Args:
+        tweet_dict: Dictionary containing tweets
+        username: username what need to be set
+
+    Returns:
+        Tweet containing dictionary
+
+    """
     tweet_dict['username'] = username
     return tweet_dict
 
 
 def ingest_tweets_batch():
     bearer_token = auth()
-    params = get_params()
     handles_dict = get_handles()
+    headers = create_headers(bearer_token)
 
     # Creating reverse dict to get id->username mapping
     rev_handles_dict = {v: k for k, v in handles_dict.items()}
@@ -112,11 +144,11 @@ def ingest_tweets_batch():
     logging.info("Started Ingesting tweets...")
     for ticker in handles:
         logging.info(f"Ingesting tweets for @{rev_handles_dict[ticker]}")
-        tw_cnt = 10  # Fetch 10 tweets at a single API call
-        next_token = None
         url = create_url(ticker)
+        next_token = None
+        tw_cnt = 0
         while True:
-            headers = create_headers(bearer_token, next_token)
+            params = get_params(next_token=next_token, batch_size=TWEET_BATCH_SIZE)
             try:
                 json_response = connect_to_endpoint(url, headers, params)
                 next_token = json_response["meta"].get("next_token")
@@ -125,8 +157,9 @@ def ingest_tweets_batch():
                 json_response_with_username = map(lambda x: update_username_as_key(x, rev_handles_dict[ticker]),
                                                   json_response["data"])
                 ingest_tweets_to_firestore(json_response_with_username)
-                logging.info(f"Ingested {tw_cnt} tweets for @{rev_handles_dict[ticker]}")
                 tw_cnt += len(json_response["data"])
+                logging.info(f"Ingested {tw_cnt} tweets for @{rev_handles_dict[ticker]}")
+                time.sleep(2)
             except Exception as e:
                 logging.info(e)
                 time.sleep(10)
