@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 import requests
 from google.cloud import firestore
@@ -68,13 +69,17 @@ def connect_to_endpoint(url, headers, params):
     """
     response = requests.request("GET", url, headers=headers, params=params)
     logging.info("Connected to ingestion endpoint")
-    if response.status_code != 200:
-        raise Exception(
-            "Request returned an error: {} {}".format(
-                response.status_code, response.text
+    try:
+        if response.status_code != 200:
+            raise Exception(
+                "Request returned an error: {} {}".format(
+                    response.status_code, response.text
+                )
             )
-        )
-    return response.json()
+        return response.json()
+    except Exception as e:
+        logging.info(e)
+        time.sleep(10)
 
 
 def ingest_tweets_to_firestore(tweets):
@@ -124,7 +129,7 @@ def ingest_tweets_batch():
                                               json_response["data"])
             ingest_tweets_to_firestore(json_response_with_username)
             logging.info(f"Ingested {tw_cnt} tweets for @{rev_handles_dict[ticker]}")
-            tw_cnt += 10
+            tw_cnt += len(json_response["data"])
 
 
 if __name__ == "__main__":
