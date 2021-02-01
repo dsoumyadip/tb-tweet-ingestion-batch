@@ -6,7 +6,7 @@ from datetime import datetime
 import requests
 from google.cloud import firestore
 
-from src.update_entity_sentiment import get_entity_sentiment
+from update_entity_sentiment import get_entity_sentiment
 
 logging.basicConfig(level=logging.INFO)
 
