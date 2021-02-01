@@ -6,6 +6,6 @@ COPY requirements.txt .
 
 RUN pip install -r requirements.txt
 
-COPY src src/
+COPY src .
 
-CMD ["python", "src/ingest_tweets_batch.py"]
+CMD ["python", "ingest_tweets_batch.py"]

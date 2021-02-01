@@ -1,6 +1,6 @@
 import re
 
-from src.helper import TYPE_, ENCODING_TYPE, CLIENT, retry
+from helper import TYPE_, ENCODING_TYPE, CLIENT, retry
 
 
 def clean_tweet(tweet):
