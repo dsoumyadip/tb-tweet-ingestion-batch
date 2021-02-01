@@ -6,6 +6,8 @@ from datetime import datetime
 import requests
 from google.cloud import firestore
 
+from src.update_entity_sentiment import get_entity_sentiment
+
 logging.basicConfig(level=logging.INFO)
 
 # Fetch 100 tweets at a single API call
@@ -142,7 +144,7 @@ def ingest_tweets_batch():
 
     # List of handles to fetch historical tweets
     # handles = list(rev_handles_dict.keys())  # For PROD
-    handles = ['18839785', '3171712086']  # For testing only
+    handles = ['18839785', '3171712086', '1652541', '51241574']  # For testing only
 
     logging.info("Started Ingesting tweets...")
     for ticker in handles:
@@ -159,7 +161,9 @@ def ingest_tweets_batch():
                     break
                 json_response_with_username = map(lambda x: update_username_as_key(x, rev_handles_dict[ticker]),
                                                   json_response["data"])
-                ingest_tweets_to_firestore(json_response_with_username)
+                updated_tweet_with_entity_sentiment = map(lambda x: get_entity_sentiment(x),
+                                                          json_response_with_username)
+                ingest_tweets_to_firestore(updated_tweet_with_entity_sentiment)
                 tw_cnt += len(json_response["data"])
                 logging.info(f"Ingested {tw_cnt} tweets for @{rev_handles_dict[ticker]}")
                 time.sleep(2)
