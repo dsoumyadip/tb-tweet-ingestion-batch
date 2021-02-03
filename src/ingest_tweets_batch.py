@@ -11,7 +11,7 @@ from update_entity_sentiment import get_entity_sentiment
 logging.basicConfig(level=logging.INFO)
 
 # Fetch 100 tweets at a single API call
-TWEET_BATCH_SIZE = 100
+TWEET_BATCH_SIZE = 20
 
 
 def auth():

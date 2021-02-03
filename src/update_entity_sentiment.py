@@ -1,6 +1,7 @@
 import re
+import logging
 
-from helper import TYPE_, ENCODING_TYPE, CLIENT, retry
+from helper import TYPE_, ENCODING_TYPE, CLIENT
 
 
 def clean_tweet(tweet):
@@ -16,7 +17,6 @@ def clean_tweet(tweet):
     return cleaned_tweet
 
 
-@retry
 def get_entity_sentiment(tweet):
     """Get entity and sentiment of a tweet
     Args:
@@ -29,15 +29,20 @@ def get_entity_sentiment(tweet):
     document = {"content": clean_tweet(tweet["text"]), "type_": TYPE_}
     request_body = {'document': document, 'encoding_type': ENCODING_TYPE}
 
-    sentiment_response = CLIENT.analyze_sentiment(request=request_body)
-    entity_response = CLIENT.analyze_entities(request=request_body)
+    try:
+        sentiment_response = CLIENT.analyze_sentiment(request=request_body)
+        entity_response = CLIENT.analyze_entities(request=request_body)
 
-    tweet["sentiment"] = dict()
-    tweet["entities"] = []
-    tweet["sentiment"]["score"] = sentiment_response.document_sentiment.score
-    tweet["sentiment"]["magnitude"] = sentiment_response.document_sentiment.magnitude
+        tweet["sentiment"] = dict()
+        tweet["entities"] = []
+        tweet["sentiment"]["score"] = sentiment_response.document_sentiment.score
+        tweet["sentiment"]["magnitude"] = sentiment_response.document_sentiment.magnitude
 
-    # Get sentiment for all sentences in the document
-    for entity in entity_response.entities:
-        tweet["entities"].append(entity.name)
-    return tweet
+        # Get sentiment for all sentences in the document
+        for entity in entity_response.entities:
+            tweet["entities"].append(entity.name)
+        return tweet
+    except Exception as e:
+        logging.error("Unable to update entity and sentiment")
+        logging.error(e)
+        return tweet
